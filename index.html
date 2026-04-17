@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crypto Stream Pro | Dark Cinematic</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Space+Grotesk:wght@300;500;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Space Grotesk', sans-serif; background: #0b0e11; color: #ffffff; overflow-x: hidden; }
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+        
+        /* Modern Glass Effect */
+        .glass { 
+            background: rgba(30, 35, 41, 0.7); 
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.05); 
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.4); 
+        }
+
+        /* Status Colors */
+        .price-up { color: #00ffad !important; text-shadow: 0 0 20px rgba(0, 255, 173, 0.3); }
+        .price-down { color: #f6465d !important; text-shadow: 0 0 20px rgba(246, 70, 93, 0.3); }
+        
+        .border-up { border-left: 4px solid #00ffad; }
+        .border-down { border-left: 4px solid #f6465d; }
+
+        .live-dot { height: 8px; width: 8px; background-color: #00ffad; border-radius: 50%; display: inline-block; box-shadow: 0 0 10px #00ffad; animation: pulse 1.5s infinite; }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.5); opacity: 0.5; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        .price-container {
+            background: linear-gradient(145deg, rgba(255,255,255,0.03) 0%, rgba(0,0,0,0) 100%);
+        }
+    </style>
+</head>
+<body class="min-h-screen p-4 md:p-8 lg:p-10">
+
+    <div class="max-w-7xl mx-auto">
+        <header class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
+            <div>
+                <div class="flex items-center gap-3 mb-1">
+                    <span class="bg-[#f0b90b] text-black px-2 py-0.5 rounded text-[10px] font-black tracking-tighter">PRO</span>
+                    <h1 class="text-xl md:text-2xl font-bold tracking-tight">KAFKA CRYPTO <span class="text-[#f0b90b]">TERMINAL</span></h1>
+                </div>
+                <p class="text-gray-500 text-[10px] font-medium uppercase tracking-[0.2em] break-all">Live Feed: kafka-35eadd43-chanuka</p>
+            </div>
+            <div class="flex items-center gap-4 glass px-4 py-2 rounded-2xl w-full sm:w-auto justify-center sm:justify-start">
+                <div class="live-dot"></div>
+                <span class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Broker: Connected</span>
+            </div>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+            <div id="price-card" class="lg:col-span-1 glass price-container p-6 md:p-8 rounded-[2rem] flex flex-col justify-between border-up transition-all duration-500">
+                <div>
+                    <div class="flex justify-between items-center mb-4">
+                        <p class="text-gray-500 font-bold text-[10px] uppercase tracking-widest">BTC / USDT Market</p>
+                        <span class="text-[10px] bg-white/5 px-2 py-1 rounded text-gray-400 font-mono">LIVE</span>
+                    </div>
+                    
+                    <div id="price" class="text-4xl md:text-5xl xl:text-6xl font-bold font-mono transition-all duration-300 text-[#00ffad] whitespace-nowrap tracking-tighter">
+                        $0.00
+                    </div>
+
+                    <div id="diff" class="mt-4 flex items-center gap-2">
+                        <div id="trend-box" class="flex items-center px-2 py-1 rounded-lg bg-white/5">
+                            <span id="trend-val" class="text-xs font-bold font-mono tracking-tighter text-gray-400 uppercase">Waiting...</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-8 border-t border-white/5 pt-6 flex justify-between items-center">
+                    <div>
+                        <span class="block text-[8px] text-gray-600 font-bold tracking-widest uppercase">Last Update</span>
+                        <span id="time" class="text-xs font-mono text-gray-400 tracking-tighter">--:--:--</span>
+                    </div>
+                    <div class="h-8 w-8 rounded-full bg-white/5 flex items-center justify-center">
+                         <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path></svg>
+                    </div>
+                </div>
+            </div>
+
+            <div class="lg:col-span-2 glass p-4 md:p-6 rounded-[2rem] min-h-[300px]">
+                <canvas id="priceChart" class="w-full h-full"></canvas>
+            </div>
+        </div>
+
+        <div class="glass rounded-[2rem] p-6 md:p-8">
+            <h3 class="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em] mb-6">Real-Time Data Stream</h3>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left min-w-[500px]">
+                    <thead>
+                        <tr class="text-[10px] text-gray-600 uppercase tracking-widest border-b border-white/5">
+                            <th class="pb-4 px-2">Timestamp</th>
+                            <th class="pb-4 px-2">Pair</th>
+                            <th class="pb-4 px-2">Network</th>
+                            <th class="pb-4 px-2 text-right">Price (USDT)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="trade-log" class="text-xs font-mono"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+        let lastPrice = 0;
+        const priceEl = document.getElementById('price');
+        const priceCard = document.getElementById('price-card');
+        const timeEl = document.getElementById('time');
+        const tradeLog = document.getElementById('trade-log');
+        const trendVal = document.getElementById('trend-val');
+
+        // Chart Setup
+        const ctx = document.getElementById('priceChart').getContext('2d');
+        const chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: Array(20).fill(''),
+                datasets: [{
+                    data: [],
+                    borderColor: '#00ffad',
+                    borderWidth: 2,
+                    tension: 0.4,
+                    pointRadius: 0,
+                    fill: true,
+                    backgroundColor: (c) => {
+                        const chart = c.chart;
+                        const {ctx, chartArea} = chart;
+                        if (!chartArea) return null;
+                        const g = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+                        g.addColorStop(0, 'rgba(0, 255, 173, 0.15)');
+                        g.addColorStop(1, 'rgba(0, 255, 173, 0)');
+                        return g;
+                    }
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { display: false },
+                    y: { 
+                        grid: { color: 'rgba(255, 255, 255, 0.03)' }, 
+                        ticks: { color: '#666', font: { family: 'JetBrains Mono', size: 10 } } 
+                    }
+                }
+            }
+        });
+
+        socket.on('crypto-update', (data) => {
+            const currentPrice = parseFloat(data.price);
+            const baseClass = "text-4xl md:text-5xl xl:text-6xl font-bold font-mono transition-all duration-300 whitespace-nowrap tracking-tighter";
+            
+            if (lastPrice !== 0) {
+                if (currentPrice >= lastPrice) {
+                    priceEl.className = `${baseClass} price-up`;
+                    priceCard.className = "lg:col-span-1 glass price-container p-6 md:p-8 rounded-[2rem] flex flex-col justify-between border-up transition-all duration-500";
+                    trendVal.innerText = `▲ +${(currentPrice - lastPrice).toFixed(2)}`;
+                    trendVal.className = 'text-[#00ffad] text-xs font-bold';
+                } else {
+                    priceEl.className = `${baseClass} price-down`;
+                    priceCard.className = "lg:col-span-1 glass price-container p-6 md:p-8 rounded-[2rem] flex flex-col justify-between border-down transition-all duration-500";
+                    trendVal.innerText = `▼ ${(currentPrice - lastPrice).toFixed(2)}`;
+                    trendVal.className = 'text-[#f6465d] text-xs font-bold';
+                }
+            }
+            
+            priceEl.innerText = `$${currentPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+            timeEl.innerText = new Date(data.time).toLocaleTimeString();
+            
+            // Update Table
+            const row = document.createElement('tr');
+            row.className = 'border-b border-white/5 hover:bg-white/5 transition-colors';
+            row.innerHTML = `
+                <td class="py-4 px-2 text-gray-500">${new Date(data.time).toLocaleTimeString()}</td>
+                <td class="py-4 px-2 font-bold text-[#f0b90b]">BTC/USDT</td>
+                <td class="py-4 px-2 text-[9px]"><span class="bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded uppercase">Aiven-Cloud</span></td>
+                <td class="py-4 px-2 text-right font-bold ${currentPrice >= lastPrice ? 'text-[#00ffad]' : 'text-[#f6465d]'}">$${currentPrice.toFixed(2)}</td>
+            `;
+            tradeLog.prepend(row);
+            if (tradeLog.children.length > 8) tradeLog.lastChild.remove();
+
+            // Update Chart
+            if (chart.data.datasets[0].data.length > 20) chart.data.datasets[0].data.shift();
+            chart.data.datasets[0].data.push(currentPrice);
+            
+            // Color Chart based on trend
+            chart.data.datasets[0].borderColor = currentPrice >= lastPrice ? '#00ffad' : '#f6465d';
+            chart.update('none');
+
+            lastPrice = currentPrice;
+        });
+    </script>
+</body>
+</html>

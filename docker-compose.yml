@@ -1,0 +1,123 @@
+version: '3.8'
+
+services:
+  # Producer Service
+  crypto-producer:
+    build:
+      context: .
+      target: production
+    container_name: crypto-producer
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - LOG_LEVEL=info
+      - LOG_FORMAT=json
+    env_file:
+      - .env
+    volumes:
+      - ./logs:/app/logs
+      - ./certs:/app/certs:ro
+    networks:
+      - crypto-network
+    healthcheck:
+      test: ["CMD", "node", "-e", "console.log('Producer healthy')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+
+  # Consumer Service
+  crypto-consumer:
+    build:
+      context: .
+      target: production
+    container_name: crypto-consumer
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - LOG_LEVEL=info
+      - LOG_FORMAT=json
+    env_file:
+      - .env
+    volumes:
+      - ./logs:/app/logs
+      - ./certs:/app/certs:ro
+    networks:
+      - crypto-network
+    depends_on:
+      - crypto-producer
+    healthcheck:
+      test: ["CMD", "node", "-e", "console.log('Consumer healthy')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+
+  # Dashboard Service
+  crypto-dashboard:
+    build:
+      context: .
+      target: production
+    container_name: crypto-dashboard
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - LOG_LEVEL=info
+      - LOG_FORMAT=json
+      - SERVER_PORT=3000
+      - SERVER_HOST=0.0.0.0
+    env_file:
+      - .env
+    volumes:
+      - ./logs:/app/logs
+      - ./certs:/app/certs:ro
+    networks:
+      - crypto-network
+    depends_on:
+      - crypto-producer
+      - crypto-consumer
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/api/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) }).on('error', () => process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+
+networks:
+  crypto-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+volumes:
+  logs:
+    driver: local
+  certs:
+    driver: local

@@ -1,0 +1,53 @@
+{
+  "name": "kafka-crypto-project",
+  "version": "2.0.0",
+  "description": "Production-grade Kafka crypto streaming application",
+  "main": "src/applications/producer.js",
+  "scripts": {
+    "start:producer": "node src/applications/producer.js",
+    "start:consumer": "node src/applications/consumer.js",
+    "start:dashboard": "node src/applications/dashboard.js",
+    "dev:producer": "NODE_ENV=development node src/applications/producer.js",
+    "dev:consumer": "NODE_ENV=development node src/applications/consumer.js",
+    "dev:dashboard": "NODE_ENV=development node src/applications/dashboard.js",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "lint": "eslint src/**/*.js",
+    "lint:fix": "eslint src/**/*.js --fix",
+    "validate": "node -e \"require('./src/config').validateConfig()\"",
+    "docker:build": "docker build -t kafka-crypto-prod .",
+    "docker:run:producer": "docker run --env-file .env kafka-crypto-prod npm run start:producer",
+    "docker:run:consumer": "docker run --env-file .env kafka-crypto-prod npm run start:consumer",
+    "docker:run:dashboard": "docker run -p 3000:3000 --env-file .env kafka-crypto-prod npm run start:dashboard"
+  },
+  "keywords": ["kafka", "crypto", "streaming", "real-time", "production"],
+  "author": "Crypto Engineering Team",
+  "license": "MIT",
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "express": "^4.18.2",
+    "kafkajs": "^2.2.4",
+    "socket.io": "^4.8.3",
+    "winston": "^3.11.0",
+    "joi": "^17.11.0",
+    "helmet": "^7.1.0",
+    "cors": "^2.8.5",
+    "compression": "^1.7.4",
+    "express-rate-limit": "^7.1.5"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "eslint": "^8.54.0",
+    "eslint-config-standard": "^17.1.0",
+    "eslint-plugin-import": "^2.29.0",
+    "eslint-plugin-node": "^11.1.0",
+    "eslint-plugin-promise": "^6.1.1",
+    "supertest": "^6.3.3",
+    "nodemon": "^3.0.2"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  }
+}
