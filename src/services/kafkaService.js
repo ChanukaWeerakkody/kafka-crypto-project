@@ -1,6 +1,20 @@
 const { Kafka, Partitioners } = require('kafkajs');
 const logger = require('../utils/logger');
 const { config } = require('../config');
+const Redis = require('ioredis');
+const redis = new Redis({
+  retryDelayOnFailover: 100,
+  maxRetriesPerRequest: 3,
+  lazyConnect: true
+});
+
+redis.on('error', (err) => {
+  logger.warn('Redis connection error:', err.message);
+});
+
+redis.on('connect', () => {
+  logger.info('Redis connected successfully');
+});
 
 class KafkaService {
   constructor() {
@@ -143,6 +157,19 @@ class KafkaService {
     await Promise.all(disconnectPromises);
     this.isConnected = false;
     logger.info('Kafka service disconnected');
+  }
+
+  async handleIncomingMessage(data) {
+    const { price, time, symbol } = data;
+    const key = `prices:${symbol}`;
+
+    try {
+      await redis.zadd(key, Date.now(), JSON.stringify(data));
+      await redis.zremrangebyrank(key, 0, -51);
+      logger.debug(`Cached ${symbol} price to Redis`);
+    } catch (error) {
+      logger.warn('Failed to cache to Redis:', error.message);
+    }
   }
 
   getConnectionStatus() {

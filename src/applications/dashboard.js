@@ -76,6 +76,8 @@ class DashboardApplication {
   }
 }
 
+
+
 // Run the application
 if (require.main === module) {
   const app = new DashboardApplication();

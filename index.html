@@ -157,49 +157,112 @@
             }
         });
 
+        socket.on('initial-data', (history) => {
+            console.log("Loading history from Redis:", history.length, "items");
+
+            chart.data.labels = [];
+            chart.data.datasets[0].data = [];
+            tradeLog.innerHTML = '';
+
+            history.forEach(data => {
+                updateUI(data, true);
+            });
+            
+            trendVal.innerText = "HISTORY SYNCED";
+        });
+
         socket.on('crypto-update', (data) => {
+            updateUI(data, false);
+        });
+
+        function updateUI(data, isHistorical) {
             const currentPrice = parseFloat(data.price);
-            const baseClass = "text-4xl md:text-5xl xl:text-6xl font-bold font-mono transition-all duration-300 whitespace-nowrap tracking-tighter";
             
-            if (lastPrice !== 0) {
-                if (currentPrice >= lastPrice) {
-                    priceEl.className = `${baseClass} price-up`;
-                    priceCard.className = "lg:col-span-1 glass price-container p-6 md:p-8 rounded-[2rem] flex flex-col justify-between border-up transition-all duration-500";
-                    trendVal.innerText = `▲ +${(currentPrice - lastPrice).toFixed(2)}`;
-                    trendVal.className = 'text-[#00ffad] text-xs font-bold';
-                } else {
-                    priceEl.className = `${baseClass} price-down`;
-                    priceCard.className = "lg:col-span-1 glass price-container p-6 md:p-8 rounded-[2rem] flex flex-col justify-between border-down transition-all duration-500";
-                    trendVal.innerText = `▼ ${(currentPrice - lastPrice).toFixed(2)}`;
-                    trendVal.className = 'text-[#f6465d] text-xs font-bold';
+            // Main Price Display update (Live data වලට විතරයි)
+            if (!isHistorical) {
+                if (lastPrice !== 0) {
+                    if (currentPrice >= lastPrice) {
+                        priceEl.className = "text-5xl md:text-6xl font-bold font-mono price-up tracking-tighter transition-all";
+                        priceCard.className = "lg:col-span-1 glass p-8 rounded-[2rem] flex flex-col justify-between border-up transition-all";
+                        trendVal.innerText = `▲ +${(currentPrice - lastPrice).toFixed(2)}`;
+                        trendVal.className = 'text-[#00ffad] text-xs font-bold';
+                    } else {
+                        priceEl.className = "text-5xl md:text-6xl font-bold font-mono price-down tracking-tighter transition-all";
+                        priceCard.className = "lg:col-span-1 glass p-8 rounded-[2rem] flex flex-col justify-between border-down transition-all";
+                        trendVal.innerText = `▼ ${(currentPrice - lastPrice).toFixed(2)}`;
+                        trendVal.className = 'text-[#f6465d] text-xs font-bold';
+                    }
                 }
+                priceEl.innerText = `$${currentPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+                timeEl.innerText = new Date(data.time).toLocaleTimeString();
             }
-            
-            priceEl.innerText = `$${currentPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-            timeEl.innerText = new Date(data.time).toLocaleTimeString();
-            
-            // Update Table
+
+            // Table Update
             const row = document.createElement('tr');
             row.className = 'border-b border-white/5 hover:bg-white/5 transition-colors';
             row.innerHTML = `
-                <td class="py-4 px-2 text-gray-500">${new Date(data.time).toLocaleTimeString()}</td>
-                <td class="py-4 px-2 font-bold text-[#f0b90b]">BTC/USDT</td>
-                <td class="py-4 px-2 text-[9px]"><span class="bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded uppercase">Aiven-Cloud</span></td>
-                <td class="py-4 px-2 text-right font-bold ${currentPrice >= lastPrice ? 'text-[#00ffad]' : 'text-[#f6465d]'}">$${currentPrice.toFixed(2)}</td>
+                <td class="py-3 text-gray-500">${new Date(data.time).toLocaleTimeString()}</td>
+                <td class="py-3 font-bold text-[#f0b90b]">BTC/USDT</td>
+                <td class="py-3 text-right font-bold ${!isHistorical && currentPrice < lastPrice ? 'text-[#f6465d]' : 'text-[#00ffad]'}">$${currentPrice.toFixed(2)}</td>
             `;
             tradeLog.prepend(row);
-            if (tradeLog.children.length > 8) tradeLog.lastChild.remove();
+            if (tradeLog.children.length > 25) tradeLog.lastChild.remove();
 
-            // Update Chart
-            if (chart.data.datasets[0].data.length > 20) chart.data.datasets[0].data.shift();
+            // Chart Update
+            if (chart.data.datasets[0].data.length > 50) {
+                chart.data.labels.shift();
+                chart.data.datasets[0].data.shift();
+            }
+            chart.data.labels.push("");
             chart.data.datasets[0].data.push(currentPrice);
-            
-            // Color Chart based on trend
-            chart.data.datasets[0].borderColor = currentPrice >= lastPrice ? '#00ffad' : '#f6465d';
             chart.update('none');
 
-            lastPrice = currentPrice;
-        });
+            if (!isHistorical) lastPrice = currentPrice;
+        }
+
+        // socket.on('crypto-update', (data) => {
+        //     const currentPrice = parseFloat(data.price);
+        //     const baseClass = "text-4xl md:text-5xl xl:text-6xl font-bold font-mono transition-all duration-300 whitespace-nowrap tracking-tighter";
+            
+        //     if (lastPrice !== 0) {
+        //         if (currentPrice >= lastPrice) {
+        //             priceEl.className = `${baseClass} price-up`;
+        //             priceCard.className = "lg:col-span-1 glass price-container p-6 md:p-8 rounded-[2rem] flex flex-col justify-between border-up transition-all duration-500";
+        //             trendVal.innerText = `▲ +${(currentPrice - lastPrice).toFixed(2)}`;
+        //             trendVal.className = 'text-[#00ffad] text-xs font-bold';
+        //         } else {
+        //             priceEl.className = `${baseClass} price-down`;
+        //             priceCard.className = "lg:col-span-1 glass price-container p-6 md:p-8 rounded-[2rem] flex flex-col justify-between border-down transition-all duration-500";
+        //             trendVal.innerText = `▼ ${(currentPrice - lastPrice).toFixed(2)}`;
+        //             trendVal.className = 'text-[#f6465d] text-xs font-bold';
+        //         }
+        //     }
+            
+        //     priceEl.innerText = `$${currentPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        //     timeEl.innerText = new Date(data.time).toLocaleTimeString();
+            
+        //     // Update Table
+        //     const row = document.createElement('tr');
+        //     row.className = 'border-b border-white/5 hover:bg-white/5 transition-colors';
+        //     row.innerHTML = `
+        //         <td class="py-4 px-2 text-gray-500">${new Date(data.time).toLocaleTimeString()}</td>
+        //         <td class="py-4 px-2 font-bold text-[#f0b90b]">BTC/USDT</td>
+        //         <td class="py-4 px-2 text-[9px]"><span class="bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded uppercase">Aiven-Cloud</span></td>
+        //         <td class="py-4 px-2 text-right font-bold ${currentPrice >= lastPrice ? 'text-[#00ffad]' : 'text-[#f6465d]'}">$${currentPrice.toFixed(2)}</td>
+        //     `;
+        //     tradeLog.prepend(row);
+        //     if (tradeLog.children.length > 8) tradeLog.lastChild.remove();
+
+        //     // Update Chart
+        //     if (chart.data.datasets[0].data.length > 20) chart.data.datasets[0].data.shift();
+        //     chart.data.datasets[0].data.push(currentPrice);
+            
+        //     // Color Chart based on trend
+        //     chart.data.datasets[0].borderColor = currentPrice >= lastPrice ? '#00ffad' : '#f6465d';
+        //     chart.update('none');
+
+        //     lastPrice = currentPrice;
+        // });
     </script>
 </body>
 </html>
